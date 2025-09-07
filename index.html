@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>加速アイテム単価計算ツール</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --secondary-color: #6c757d;
+        --danger-color: #dc3545;
+        --background-color: #f0f2f5;
+        --surface-color: #ffffff;
+        --text-color: #333;
+        --border-color: #ddd;
+        --border-radius: 8px;
+        --font-family: "Noto Sans JP", sans-serif;
+        --highlight-color: #e0f7ff;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: var(--font-family);
+        background-color: var(--background-color);
+      }
+      .container {
+        max-width: 400px;
+        height: 100%;
+        margin: 0 auto;
+        background-color: var(--surface-color);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+      }
+      .content-wrapper {
+        flex-grow: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .page {
+        height: 100%;
+        padding: 15px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+      }
+      .page.hidden {
+        display: none;
+      }
+      .calc-form {
+        flex-shrink: 0;
+        overflow-y: auto;
+      }
+      .page-title {
+        text-align: center;
+        color: var(--text-color);
+        margin-top: 0;
+        margin-bottom: 16px;
+        font-size: 1.3em;
+      }
+      .input-group {
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 700;
+        font-size: 0.9em;
+      }
+      input[type="number"],
+      input[type="text"] {
+        padding: 9px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        box-sizing: border-box;
+        font-size: 1em;
+        font-family: var(--font-family);
+        width: 100%;
+      }
+      .price-selector {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+      }
+      .price-selector::-webkit-scrollbar {
+        height: 4px;
+      }
+      .price-selector::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 2px;
+      }
+      .price-btn {
+        padding: 8px 12px;
+        font-size: 0.85em;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        flex-shrink: 0;
+      }
+      .price-btn.active {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+      }
+      .item-tabs-nav {
+        display: flex;
+      }
+      .tab-btn {
+        flex-grow: 1;
+        padding: 10px;
+        font-size: 0.9em;
+        text-align: center;
+        border: 1px solid var(--border-color);
+        background-color: #f0f2f5;
+        cursor: pointer;
+        font-weight: 700;
+        transition: background-color 0.2s;
+        border-bottom: none;
+      }
+      .tab-btn:first-child {
+        border-top-left-radius: var(--border-radius);
+      }
+      .tab-btn:last-child {
+        border-top-right-radius: var(--border-radius);
+      }
+      .tab-btn.active {
+        background-color: var(--surface-color);
+      }
+      .item-tabs-content {
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        padding: 15px;
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+        text-align: center;
+      }
+      .input-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .input-row input {
+        text-align: center;
+        font-size: 1.5em;
+        font-weight: 700;
+        flex-grow: 1;
+        min-width: 0; /* flexアイテムの縮小を許可 */
+      }
+      .button-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+      .button-row + .button-row {
+        margin-top: 6px;
+      }
+      .btn-modify,
+      .btn-clear-item {
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        background-color: #f8f9fa;
+        font-size: 0.9em;
+        font-weight: 700;
+        cursor: pointer;
+        border-radius: var(--border-radius);
+        white-space: nowrap; /* テキストの改行を防止 */
+      }
+      .btn-clear-item {
+        color: var(--danger-color);
+      }
+      .total-time-box {
+        margin-top: 10px;
+        background-color: #f8f9fa;
+        padding: 12px;
+        border-radius: var(--border-radius);
+        text-align: center;
+        line-height: 1.5;
+        color: var(--text-color);
+      }
+      .total-time-box strong {
+        font-size: 1.2em;
+        color: var(--primary-color);
+        display: block;
+        margin-bottom: 8px;
+      }
+      #time-breakdown {
+        font-size: 0.85em;
+        color: #555;
+      }
+      .result-box {
+        margin-top: -2px;
+        margin-bottom: 12px;
+        background-color: #e9ecef;
+        padding: 12px;
+        border-radius: var(--border-radius);
+        text-align: center;
+        font-size: 1.1em;
+        font-weight: 700;
+        min-height: 24px;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        border-top: 1px solid #ddd;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .btn {
+        width: 100%;
+        padding: 10px;
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        font-size: 1em;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background-color: var(--primary-color);
+      }
+      .btn-secondary {
+        background-color: var(--secondary-color);
+      }
+      .btn:active,
+      .btn-modify:active,
+      .price-btn:active,
+      .tab-btn:active {
+        transform: scale(0.98);
+        filter: brightness(0.9);
+      }
+      .history-section {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #eee;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-shrink: 0;
+      }
+      .history-header h3 {
+        margin: 0;
+        font-size: 1.1em;
+      }
+      .history-link {
+        font-size: 0.8em;
+        color: var(--primary-color);
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 5px;
+      }
+      .full-history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        flex-shrink: 0;
+      }
+      .full-history-header .page-title {
+        margin: 0;
+      }
+      .btn-back {
+        font-size: 0.9em;
+        font-weight: 700;
+        color: var(--primary-color);
+        cursor: pointer;
+        background: none;
+        border: 1px solid var(--primary-color);
+        border-radius: 5px;
+        padding: 6px 12px;
+      }
+      .btn-clear-history {
+        color: var(--danger-color);
+        border-color: var(--danger-color);
+      }
+      .table-container {
+        flex-grow: 1;
+        overflow-y: auto;
+        min-height: 0;
+      }
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .history-table th,
+      .history-table td {
+        padding: 10px 5px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.85em;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .history-table th:first-child,
+      .history-table td:first-child {
+        text-align: left;
+        white-space: normal;
+      }
+      .history-table th {
+        background-color: #f8f9fa;
+        font-weight: 700;
+        position: sticky;
+        top: 0;
+      }
+      @keyframes highlight-and-fade {
+        0% {
+          background-color: var(--highlight-color);
+        }
+        100% {
+          background-color: transparent;
+        }
+      }
+      .history-table tr.new-entry {
+        animation: highlight-and-fade 1.5s ease-out forwards;
+      }
+      .footer {
+        text-align: center;
+        font-size: 0.8em;
+        color: #888;
+        padding: 10px;
+        border-top: 1px solid var(--border-color);
+        background-color: var(--surface-color);
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="content-wrapper">
+        <main id="page-calc" class="page">
+          <section class="calc-form">
+            <h1 class="page-title">加速アイテム単価計算</h1>
+            <div class="input-group">
+              <label>購入価格</label>
+              <div class="price-selector">
+                <button class="price-btn" data-price="800">800円</button>
+                <button class="price-btn" data-price="1600">1,600円</button>
+                <button class="price-btn" data-price="3200">3,200円</button>
+                <button class="price-btn" data-price="8000">8,000円</button>
+                <button class="price-btn" data-price="15800">15,800円</button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label>加速アイテム数量</label>
+              <div class="item-tabs-nav"></div>
+              <div class="item-tabs-content"></div>
+              <div id="total-time-box" class="total-time-box">
+                <strong>合計時間: 0分</strong>
+                <div id="time-breakdown"></div>
+              </div>
+              <div id="result-box" class="result-box">
+                価格とアイテムを選択してください
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="memo">メモ</label>
+              <input
+                type="text"
+                id="memo"
+                placeholder="（任意）例: 〇〇イベント用"
+              />
+            </div>
+            <div class="button-group">
+              <button id="btn-reset" class="btn btn-secondary">リセット</button>
+              <button id="btn-save" class="btn btn-primary">履歴に保存</button>
+            </div>
+          </section>
+          <section class="history-section">
+            <header class="history-header">
+              <h3>直近の履歴</h3>
+              <button id="btn-show-history" class="history-link">
+                すべての履歴を見る &gt;
+              </button>
+            </header>
+            <div class="table-container">
+              <table class="history-table">
+                <thead>
+                  <tr>
+                    <th>メモ</th>
+                    <th>価格</th>
+                    <th>合計時間</th>
+                    <th>単価/時</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-history-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+        <section id="page-history" class="page hidden">
+          <header class="full-history-header">
+            <button id="btn-back" class="btn-back">&lt; 戻る</button>
+            <h1 class="page-title">すべての履歴</h1>
+            <button
+              id="btn-clear-history"
+              class="history-link btn-clear-history"
+            >
+              履歴を消去
+            </button>
+          </header>
+          <div class="table-container">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>メモ</th>
+                  <th>価格</th>
+                  <th>合計時間</th>
+                  <th>単価/時</th>
+                </tr>
+              </thead>
+              <tbody id="full-history-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+      <footer class="footer">作成者 #3275 きんにくん</footer>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const itemDefs = [
+          { id: "item-1h", label: "1時間", minutes: 60, tag: "1h" },
+          { id: "item-5m", label: "5分", minutes: 5, tag: "5m" },
+          { id: "item-1m", label: "1分", minutes: 1, tag: "1m" },
+        ];
+        const navContainer = document.querySelector(".item-tabs-nav");
+        const contentContainer = document.querySelector(".item-tabs-content");
+
+        itemDefs.forEach((item, index) => {
+          const activeClass = index === 0 ? "active" : "";
+          navContainer.innerHTML += `<button class="tab-btn ${activeClass}" data-target-id="${item.id}">${item.label}</button>`;
+          contentContainer.innerHTML += `
+              <div class="tab-panel ${activeClass}" id="${item.id}-panel">
+                <div class="input-row">
+                    <input type="number" id="${item.id}" value="0" min="0" />
+                    <button class="btn-clear-item" data-target="${item.id}">クリア</button>
+                </div>
+                <div class="button-row">
+                    <button class="btn-modify" data-target="${item.id}" data-amount="1">+1</button>
+                    <button class="btn-modify" data-target="${item.id}" data-amount="10">+10</button>
+                    <button class="btn-modify" data-target="${item.id}" data-amount="100">+100</button>
+                </div>
+                <div class="button-row">
+                    <button class="btn-modify" data-target="${item.id}" data-amount="-1">-1</button>
+                    <button class="btn-modify" data-target="${item.id}" data-amount="-10">-10</button>
+                    <button class="btn-modify" data-target="${item.id}" data-amount="-100">-100</button>
+                </div>
+              </div>`;
+        });
+
+        const UIElements = {
+          pages: {
+            calc: document.getElementById("page-calc"),
+            history: document.getElementById("page-history"),
+          },
+          priceButtons: document.querySelectorAll(".price-btn"),
+          itemInputs: itemDefs.map((item) => document.getElementById(item.id)),
+          memo: document.getElementById("memo"),
+          saveButton: document.getElementById("btn-save"),
+          resetButton: document.getElementById("btn-reset"),
+          showHistoryButton: document.getElementById("btn-show-history"),
+          backButton: document.getElementById("btn-back"),
+          clearHistoryButton: document.getElementById("btn-clear-history"),
+          totalTimeBox: document.getElementById("total-time-box"),
+          timeBreakdown: document.getElementById("time-breakdown"),
+          resultBox: document.getElementById("result-box"),
+          recentHistoryBody: document.getElementById("recent-history-body"),
+          fullHistoryBody: document.getElementById("full-history-body"),
+          tabNav: document.querySelector(".item-tabs-nav"),
+        };
+
+        const HISTORY_KEY = "unitPriceHistory_v10";
+        let selectedPrice = 0;
+        const historyService = {
+          get: () => JSON.parse(localStorage.getItem(HISTORY_KEY)) || [],
+          add: (entry) => {
+            let history = historyService.get();
+            history.unshift(entry);
+            if (history.length > 50) history.pop();
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+          },
+          clear: () => {
+            if (confirm("本当にすべての履歴を消去しますか？")) {
+              localStorage.removeItem(HISTORY_KEY);
+              return true;
+            }
+            return false;
+          },
+        };
+
+        const formatMinutes = (totalMinutes) => {
+          if (totalMinutes === 0) return "0分";
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          let result = "";
+          if (hours > 0) result += `${hours}時間 `;
+          if (minutes > 0) result += `${minutes}分`;
+          return result.trim();
+        };
+        const updateCalculation = () => {
+          let totalMinutes = 0;
+          const breakdownParts = [];
+          UIElements.itemInputs.forEach((input, index) => {
+            const quantity = parseInt(input.value) || 0;
+            if (quantity > 0) {
+              totalMinutes += quantity * itemDefs[index].minutes;
+              breakdownParts.push(`${itemDefs[index].tag}: ${quantity}個`);
+            }
+          });
+          UIElements.totalTimeBox.querySelector(
+            "strong"
+          ).textContent = `合計時間: ${formatMinutes(totalMinutes)}`;
+          UIElements.timeBreakdown.innerHTML =
+            breakdownParts.length > 0
+              ? `(内訳: ${breakdownParts.join(" | ")})`
+              : "";
+          if (selectedPrice > 0 && totalMinutes > 0) {
+            const unitPrice = (selectedPrice / (totalMinutes / 60)).toFixed(2);
+            UIElements.resultBox.textContent = `1時間あたりの単価: ${unitPrice} 円`;
+          } else {
+            UIElements.resultBox.textContent =
+              "価格とアイテムを選択してください";
+          }
+        };
+        const renderHistory = () => {
+          const history = historyService.get();
+          const populate = (tableBody, data) => {
+            if (!tableBody) return;
+            tableBody.innerHTML =
+              data.length === 0
+                ? `<tr><td colspan="4">履歴はありません</td></tr>`
+                : data
+                    .map(
+                      (item) =>
+                        `<tr><td>${item.memo}</td><td>${item.price}円</td><td>${item.totalTime}</td><td>${item.unitPrice}円</td></tr>`
+                    )
+                    .join("");
+          };
+          populate(UIElements.recentHistoryBody, history.slice(0, 5));
+          populate(UIElements.fullHistoryBody, history);
+        };
+        const resetForm = () => {
+          selectedPrice = 0;
+          UIElements.priceButtons.forEach((btn) =>
+            btn.classList.remove("active")
+          );
+          UIElements.itemInputs.forEach((input) => (input.value = "0"));
+          UIElements.memo.value = "";
+          updateCalculation();
+        };
+        UIElements.priceButtons.forEach((button) => {
+          button.addEventListener("click", (e) => {
+            UIElements.priceButtons.forEach((btn) =>
+              btn.classList.remove("active")
+            );
+            e.target.classList.add("active");
+            selectedPrice = parseInt(e.target.dataset.price);
+            updateCalculation();
+          });
+        });
+        UIElements.tabNav.addEventListener("click", (e) => {
+          if (!e.target.classList.contains("tab-btn")) return;
+          const targetId = e.target.dataset.targetId;
+          document
+            .querySelectorAll(".tab-btn, .tab-panel")
+            .forEach((el) => el.classList.remove("active"));
+          e.target.classList.add("active");
+          document.getElementById(`${targetId}-panel`).classList.add("active");
+        });
+        document.querySelectorAll(".btn-modify").forEach((button) => {
+          button.addEventListener("click", (e) => {
+            const targetInput = document.getElementById(
+              e.currentTarget.dataset.target
+            );
+            const amount = parseInt(e.currentTarget.dataset.amount);
+            targetInput.value = Math.max(
+              0,
+              (parseInt(targetInput.value) || 0) + amount
+            );
+            updateCalculation();
+          });
+        });
+        document.querySelectorAll(".btn-clear-item").forEach((button) => {
+          button.addEventListener("click", (e) => {
+            document.getElementById(e.currentTarget.dataset.target).value = 0;
+            updateCalculation();
+          });
+        });
+        UIElements.itemInputs.forEach((input) =>
+          input.addEventListener("input", updateCalculation)
+        );
+        UIElements.saveButton.addEventListener("click", () => {
+          const totalMinutes = UIElements.itemInputs.reduce(
+            (acc, input, index) =>
+              acc + (parseInt(input.value) || 0) * itemDefs[index].minutes,
+            0
+          );
+          if (selectedPrice <= 0 || totalMinutes <= 0) {
+            alert("価格と1つ以上のアイテムを選択してから保存してください。");
+            return;
+          }
+          const unitPriceText =
+            UIElements.resultBox.textContent.match(/(\d+\.\d+)/);
+          if (!unitPriceText) return;
+          historyService.add({
+            memo: UIElements.memo.value.trim() || "-",
+            price: selectedPrice,
+            totalTime: formatMinutes(totalMinutes),
+            unitPrice: parseFloat(unitPriceText[0]).toFixed(2),
+          });
+          renderHistory();
+          const newRow =
+            UIElements.recentHistoryBody.querySelector("tr:first-child");
+          if (newRow && !newRow.querySelector("td[colspan]")) {
+            newRow.classList.add("new-entry");
+            setTimeout(() => newRow.classList.remove("new-entry"), 1500);
+          }
+        });
+        UIElements.resetButton.addEventListener("click", resetForm);
+        UIElements.showHistoryButton.addEventListener("click", () => {
+          UIElements.pages.calc.classList.add("hidden");
+          UIElements.pages.history.classList.remove("hidden");
+        });
+        UIElements.backButton.addEventListener("click", () => {
+          UIElements.pages.history.classList.add("hidden");
+          UIElements.pages.calc.classList.remove("hidden");
+        });
+        UIElements.clearHistoryButton.addEventListener("click", () => {
+          if (historyService.clear()) renderHistory();
+        });
+        updateCalculation();
+        renderHistory();
+      });
+    </script>
+  </body>
+</html>
